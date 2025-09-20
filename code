@@ -1,0 +1,81 @@
+import java.io.FileReader;
+import java.util.*;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+
+public class SecretSharing {
+
+    // Helper function to decode a number from a custom base to long
+    static long decodeBase(String value, int base) {
+        value = value.toLowerCase();
+        long result = 0;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            int digit = 0;
+            if (c >= '0' && c <= '9')
+                digit = c - '0';
+            else if (c >= 'a' && c <= 'z')
+                digit = 10 + (c - 'a');
+            result = result * base + digit;
+        }
+        return result;
+    }
+
+    // Data point class
+    static class Data {
+        int x;
+        long y;
+        public Data(int x, long y) {
+            this.x = x;
+            this.y = y;
+        }
+    }
+
+    // Lagrange Interpolation to get secret (constant term, c)
+    static double interpolate(Data[] points, int k) {
+        double secret = 0.0;
+        for (int i = 0; i < k; i++) {
+            double term = points[i].y;
+            for (int j = 0; j < k; j++) {
+                if (i != j)
+                    term *= (0.0 - points[j].x) / (points[i].x - points[j].x);
+            }
+            secret += term;
+        }
+        return secret;
+    }
+
+    public static void main(String[] args) throws Exception {
+        // Add both test case JSON filenames here
+        String[] files = {"testcase1.json", "testcase2.json"};
+        for (String fname : files) {
+            JSONParser parser = new JSONParser();
+            JSONObject obj = (JSONObject) parser.parse(new FileReader(fname));
+            JSONObject keys = (JSONObject) obj.get("keys");
+            int n = ((Long) keys.get("n")).intValue();
+            int k = ((Long) keys.get("k")).intValue();
+            ArrayList<Data> pointsList = new ArrayList<>();
+
+            // Extract and decode each (x, y)
+            for (Object key : obj.keySet()) {
+                String skey = key.toString();
+                if (skey.equals("keys"))
+                    continue;
+                JSONObject entry = (JSONObject) obj.get(skey);
+                int x = Integer.parseInt(skey);
+                String baseStr = entry.get("base").toString();
+                String valStr = entry.get("value").toString();
+                int base = Integer.parseInt(baseStr);
+                long y = decodeBase(valStr, base);
+                pointsList.add(new Data(x, y));
+            }
+            // Use any k points (first k points for simplicity)
+            Data[] points = new Data[k];
+            for (int i = 0; i < k; i++)
+                points[i] = pointsList.get(i);
+
+            double secret = interpolate(points, k);
+            System.out.println("Secret for " + fname + " : " + Math.round(secret));
+        }
+    }
+}
